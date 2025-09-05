@@ -230,7 +230,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateClickCookies(messageId: string, userId: string, fbc: string | null, fbp: string | null): Promise<void> {
-    // Update the most recent click record for this user and message with Facebook cookies
+    // Update ALL recent click records for this user and message (last 5 minutes)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    
     await db
       .update(linkClicks)
       .set({ 
@@ -240,7 +242,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(linkClicks.welcomeMessageId, messageId),
-          eq(linkClicks.telegramUserId, userId)
+          eq(linkClicks.telegramUserId, userId),
+          sql`${linkClicks.clickedAt} >= ${fiveMinutesAgo}` // Last 5 minutes के सारे records
         )
       );
   }

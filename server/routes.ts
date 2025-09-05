@@ -133,10 +133,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Link redirect and tracking endpoint
+  // Link redirect and tracking endpoint with Facebook Pixel
   app.get("/r/:messageId/:userId", async (req, res) => {
     try {
       const { messageId, userId } = req.params;
+      const { fbclid } = req.query;
       
       // Get the welcome message to find the original URL
       const messages = await storage.getAllWelcomeMessages();
@@ -146,19 +147,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Link not found" });
       }
 
-      // Track the click
+      // Track the click with fbclid
       await storage.trackLinkClick({
         welcomeMessageId: messageId,
         telegramUserId: userId,
         originalUrl: message.buttonLink,
+        fbclid: fbclid as string || null,
         userAgent: req.headers['user-agent'] || null,
         ipAddress: req.ip || req.connection.remoteAddress || null,
       });
 
-      console.log(`📊 Link clicked: ${message.source} -> ${message.buttonLink} by user ${userId}`);
+      console.log(`📊 Link clicked: ${message.source} -> ${message.buttonLink} by user ${userId}${fbclid ? ` [fbclid: ${fbclid}]` : ''}`);
 
-      // Redirect to original URL
-      res.redirect(message.buttonLink);
+      // Prepare final URL with fbclid parameter if available
+      let finalUrl = message.buttonLink;
+      if (fbclid) {
+        const separator = finalUrl.includes('?') ? '&' : '?';
+        finalUrl += `${separator}fbclid=${fbclid}`;
+      }
+
+      // If this is a direct redirect (not requesting Facebook Pixel tracking page)
+      if (req.query.direct === 'true') {
+        return res.redirect(finalUrl);
+      }
+
+      // Serve Facebook Pixel tracking page with auto-redirect
+      const trackingPageHtml = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting...</title>
+    
+    <!-- Facebook Pixel Code -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window,document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    
+    fbq('init', 'YOUR_PIXEL_ID'); // Replace with actual Facebook Pixel ID
+    fbq('track', 'PageView');
+    
+    // Custom event for bot link clicks
+    fbq('trackCustom', 'BotLinkClick', {
+        source: '${message.source}',
+        button_text: '${message.buttonText || 'N/A'}',
+        telegram_user_id: '${userId}',
+        fbclid: '${fbclid || 'N/A'}'
+    });
+    </script>
+    <noscript>
+    <img height="1" width="1" style="display:none" 
+         src="https://www.facebook.com/tr?id=YOUR_PIXEL_ID&ev=PageView&noscript=1"/>
+    </noscript>
+    <!-- End Facebook Pixel Code -->
+    
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            background: #f8f9fa;
+        }
+        .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1877f2;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .redirect-text {
+            color: #65676b;
+            margin-bottom: 1rem;
+        }
+        .redirect-link {
+            color: #1877f2;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <div class="redirect-text">Redirecting you to your destination...</div>
+        <p><a href="${finalUrl}" class="redirect-link">Click here if you're not redirected automatically</a></p>
+    </div>
+    
+    <script>
+        // Auto redirect after tracking
+        setTimeout(function() {
+            window.location.href = '${finalUrl}';
+        }, 1000);
+    </script>
+</body>
+</html>`;
+
+      res.setHeader('Content-Type', 'text/html');
+      res.send(trackingPageHtml);
+      
     } catch (error) {
       console.error("Error tracking link click:", error);
       res.status(500).json({ message: "Failed to redirect" });

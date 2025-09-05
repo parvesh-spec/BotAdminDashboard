@@ -64,7 +64,7 @@ export class TelegramBot {
     }
   }
 
-  async sendWelcomeMessage(chatId: number, firstName: string, source?: string, telegramUserId?: string) {
+  async sendWelcomeMessage(chatId: number, firstName: string, source?: string, telegramUserId?: string, fbclid?: string | null) {
     try {
       const welcomeMessageConfig = await storage.getWelcomeMessage(source);
       
@@ -80,8 +80,13 @@ export class TelegramBot {
       // Create inline keyboard if button text and link are provided
       let reply_markup;
       if (welcomeMessageConfig?.buttonText && welcomeMessageConfig?.buttonLink) {
-        // Create tracked URL for click analytics
-        const trackingUrl = `${process.env.REPL_URL || 'https://2635970f-1194-40c9-a633-2b7dc8587abe-00-3cb1axvzvtdyu.spock.replit.dev'}/r/${welcomeMessageConfig.id}/${telegramUserId || chatId}`;
+        // Create tracked URL for click analytics with fbclid parameter
+        let trackingUrl = `${process.env.REPL_URL || 'https://2635970f-1194-40c9-a633-2b7dc8587abe-00-3cb1axvzvtdyu.spock.replit.dev'}/r/${welcomeMessageConfig.id}/${telegramUserId || chatId}`;
+        
+        // Add fbclid parameter to tracking URL if available
+        if (fbclid) {
+          trackingUrl += `?fbclid=${fbclid}`;
+        }
         
         reply_markup = {
           inline_keyboard: [[
@@ -107,14 +112,25 @@ export class TelegramBot {
     const text = message.text || "";
 
     try {
-      // Extract source from start command parameter
-      // Format: /start or /start facebookads or /start referral etc
+      // Extract source and fbclid from start command parameter
+      // Format: /start or /start facebookads or /start facebookads_fbclid=abc123 etc
       const parts = text.split(" ");
       let source = "Direct"; // Default source
+      let fbclid = null; // Facebook Click ID
       
       if (parts.length > 1 && parts[1].trim()) {
-        source = parts[1].trim();
-        console.log(`📊 User source detected: ${source}`);
+        const parameter = parts[1].trim();
+        
+        // Check if parameter contains fbclid
+        if (parameter.includes('_fbclid=')) {
+          const [sourceParam, fbclidParam] = parameter.split('_fbclid=');
+          source = sourceParam;
+          fbclid = fbclidParam;
+          console.log(`📊 User source detected: ${source} with fbclid: ${fbclid}`);
+        } else {
+          source = parameter;
+          console.log(`📊 User source detected: ${source}`);
+        }
       }
 
       // Try to create new user, if already exists, update activity
@@ -125,20 +141,21 @@ export class TelegramBot {
           firstName: user.first_name,
           lastName: user.last_name || null,
           source: source,
+          fbclid: fbclid,
         });
-        console.log(`✅ New user registered: ${user.first_name} (${user.id}) from ${source}`);
+        console.log(`✅ New user registered: ${user.first_name} (${user.id}) from ${source}${fbclid ? ` [fbclid: ${fbclid}]` : ''}`);
       } catch (createError: any) {
         // If user already exists (duplicate key error), update their activity
         if (createError.code === '23505' || createError.message?.includes('duplicate key')) {
-          await storage.updateBotUserActivity(user.id.toString());
-          console.log(`🔄 Existing user restarted bot: ${user.first_name} (${user.id}) from ${source}`);
+          await storage.updateBotUserActivity(user.id.toString(), fbclid);
+          console.log(`🔄 Existing user restarted bot: ${user.first_name} (${user.id}) from ${source}${fbclid ? ` [fbclid: ${fbclid}]` : ''}`);
         } else {
           throw createError; // Re-throw if it's a different error
         }
       }
 
       // Send welcome message
-      await this.sendWelcomeMessage(chatId, user.first_name, source, user.id.toString());
+      await this.sendWelcomeMessage(chatId, user.first_name, source, user.id.toString(), fbclid);
 
     } catch (error) {
       console.error("❌ Error handling start command:", error);

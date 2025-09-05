@@ -13,7 +13,7 @@ interface IStorage {
   getBotUsers(filters: { search?: string; source?: string; page: number; limit: number }): Promise<{ users: BotUser[]; total: number }>;
   getBotUserStats(): Promise<{ total: number; active: number; inactive: number; todayJoined: number }>;
   createBotUser(userData: InsertBotUser): Promise<BotUser>;
-  updateBotUserActivity(telegramId: string): Promise<void>;
+  updateBotUserActivity(telegramId: string, fbclid?: string | null): Promise<void>;
   getBotUserSources(): Promise<string[]>;
   
   // Welcome message methods
@@ -128,13 +128,20 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateBotUserActivity(telegramId: string): Promise<void> {
+  async updateBotUserActivity(telegramId: string, fbclid?: string | null): Promise<void> {
+    const updateData: any = { 
+      lastActiveAt: new Date(),
+      messageCount: sql`${botUsers.messageCount} + 1`
+    };
+    
+    // Update fbclid if provided (for returning users from Facebook)
+    if (fbclid) {
+      updateData.fbclid = fbclid;
+    }
+    
     await db
       .update(botUsers)
-      .set({ 
-        lastActiveAt: new Date(),
-        messageCount: sql`${botUsers.messageCount} + 1`
-      })
+      .set(updateData)
       .where(eq(botUsers.telegramId, telegramId));
   }
 

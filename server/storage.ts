@@ -20,6 +20,7 @@ interface IStorage {
   updateChannelStatus(telegramId: string, status: 'notjoined' | 'joined' | 'left'): Promise<void>;
   getBotUserByTelegramId(telegramId: string): Promise<BotUser | undefined>;
   getBotUserClickData(telegramId: string): Promise<{ fbclid: string | null; fbc: string | null; fbp: string | null } | null>;
+  getRecentClickData(telegramId: string, minutesBack: number): Promise<{ fbclid: string | null; fbc: string | null; fbp: string | null } | null>;
   
   // Welcome message methods
   getWelcomeMessage(source?: string): Promise<WelcomeMessage | undefined>;
@@ -348,6 +349,29 @@ export class DatabaseStorage implements IStorage {
       })
       .from(linkClicks)
       .where(eq(linkClicks.telegramUserId, telegramId))
+      .orderBy(desc(linkClicks.clickedAt))
+      .limit(1);
+
+    return clickData || null;
+  }
+
+  async getRecentClickData(telegramId: string, minutesBack: number): Promise<{ fbclid: string | null; fbc: string | null; fbp: string | null } | null> {
+    // Get click data only if user clicked within the specified time window
+    const timeLimit = new Date(Date.now() - minutesBack * 60 * 1000);
+    
+    const [clickData] = await db
+      .select({
+        fbclid: linkClicks.fbclid,
+        fbc: linkClicks.fbc,
+        fbp: linkClicks.fbp,
+      })
+      .from(linkClicks)
+      .where(
+        and(
+          eq(linkClicks.telegramUserId, telegramId),
+          sql`${linkClicks.clickedAt} >= ${timeLimit}`
+        )
+      )
       .orderBy(desc(linkClicks.clickedAt))
       .limit(1);
 

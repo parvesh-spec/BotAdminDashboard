@@ -319,13 +319,15 @@ export class TelegramBot {
 
   async fireChannelJoinConversion(telegramUserId: string) {
     try {
-      // Get user's click data for conversion API
-      const clickData = await storage.getBotUserClickData(telegramUserId);
+      // Get user's click data only if they clicked within last 2 minutes
+      const clickData = await storage.getRecentClickData(telegramUserId, 2);
       
       if (!clickData || !clickData.fbc || !clickData.fbp) {
-        console.log(`⚠️ No Facebook data found for user ${telegramUserId} - skipping conversion`);
+        console.log(`⚠️ No recent click data (last 2 minutes) for user ${telegramUserId} - skipping conversion event`);
         return;
       }
+
+      console.log(`✅ User ${telegramUserId} has recent activity - firing conversion event`);
 
       // Prepare Facebook Conversion API payload
       const conversionData = {

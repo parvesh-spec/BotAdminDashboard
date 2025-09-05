@@ -327,6 +327,13 @@ export class TelegramBot {
         return;
       }
 
+      // Get user's database ID for external_id
+      const botUser = await storage.getBotUserByTelegramId(telegramUserId);
+      if (!botUser) {
+        console.log(`⚠️ Bot user not found for Telegram ID ${telegramUserId} - skipping conversion event`);
+        return;
+      }
+
       console.log(`✅ User ${telegramUserId} has recent activity - firing conversion event`);
 
       // Prepare Facebook Conversion API payload
@@ -339,7 +346,7 @@ export class TelegramBot {
           user_data: {
             fbc: clickData.fbc,
             fbp: clickData.fbp,
-            external_id: telegramUserId, // Telegram User ID as external identifier
+            external_id: botUser.id, // Database user ID as external identifier
             client_ip_address: clickData.ipAddress,
             client_user_agent: clickData.userAgent,
           },

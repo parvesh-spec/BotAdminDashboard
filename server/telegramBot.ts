@@ -88,8 +88,19 @@ export class TelegramBot {
   async handleStart(message: TelegramMessage) {
     const user = message.from;
     const chatId = message.chat.id;
+    const text = message.text || "";
 
     try {
+      // Extract source from start command parameter
+      // Format: /start or /start facebookads or /start referral etc
+      const parts = text.split(" ");
+      let source = "Direct"; // Default source
+      
+      if (parts.length > 1 && parts[1].trim()) {
+        source = parts[1].trim();
+        console.log(`📊 User source detected: ${source}`);
+      }
+
       // Try to create new user, if already exists, update activity
       try {
         await storage.createBotUser({
@@ -97,14 +108,14 @@ export class TelegramBot {
           username: user.username || null,
           firstName: user.first_name,
           lastName: user.last_name || null,
-          source: "Direct", // Default source for /start command
+          source: source,
         });
-        console.log(`✅ New user registered: ${user.first_name} (${user.id})`);
+        console.log(`✅ New user registered: ${user.first_name} (${user.id}) from ${source}`);
       } catch (createError: any) {
         // If user already exists (duplicate key error), update their activity
         if (createError.code === '23505' || createError.message?.includes('duplicate key')) {
           await storage.updateBotUserActivity(user.id.toString());
-          console.log(`🔄 Existing user restarted bot: ${user.first_name} (${user.id})`);
+          console.log(`🔄 Existing user restarted bot: ${user.first_name} (${user.id}) from ${source}`);
         } else {
           throw createError; // Re-throw if it's a different error
         }

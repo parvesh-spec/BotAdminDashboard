@@ -45,6 +45,7 @@ export const botUsers = pgTable("bot_users", {
   lastName: varchar("last_name"),
   source: varchar("source").notNull(), // Direct, Referral, Social Media, Advertisement, etc.
   fbclid: varchar("fbclid"), // Facebook Click ID for attribution tracking
+  campusFreeChannel: varchar("campus_free_channel").default("notjoined"), // notjoined, joined, left
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
   lastActiveAt: timestamp("last_active_at").defaultNow(),
   isActive: varchar("is_active").default("active"), // active, inactive

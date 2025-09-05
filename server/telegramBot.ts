@@ -22,9 +22,28 @@ interface TelegramMessage {
   text?: string;
 }
 
+interface TelegramChatMember {
+  user: TelegramUser;
+  status: 'creator' | 'administrator' | 'member' | 'restricted' | 'left' | 'kicked';
+  until_date?: number;
+}
+
+interface TelegramChatMemberUpdate {
+  chat: {
+    id: number;
+    type: string;
+    title?: string;
+  };
+  from: TelegramUser;
+  date: number;
+  old_chat_member: TelegramChatMember;
+  new_chat_member: TelegramChatMember;
+}
+
 interface TelegramUpdate {
   update_id: number;
   message?: TelegramMessage;
+  chat_member?: TelegramChatMemberUpdate;
 }
 
 export class TelegramBot {
@@ -249,10 +268,112 @@ export class TelegramBot {
     }
   }
 
+  async handleChatMemberUpdate(chatMemberUpdate: TelegramChatMemberUpdate) {
+    const CAMPUS_CHANNEL_ID = "-1001930548228";
+    
+    // Only process updates for our specific channel
+    if (chatMemberUpdate.chat.id.toString() !== CAMPUS_CHANNEL_ID) {
+      return;
+    }
+
+    const userId = chatMemberUpdate.new_chat_member.user.id.toString();
+    const oldStatus = chatMemberUpdate.old_chat_member.status;
+    const newStatus = chatMemberUpdate.new_chat_member.status;
+    
+    console.log(`📺 Channel update: User ${userId} | ${oldStatus} -> ${newStatus}`);
+
+    try {
+      // Check if user exists in our bot users table
+      const botUser = await storage.getBotUserByTelegramId(userId);
+      
+      if (!botUser) {
+        console.log(`⚠️ User ${userId} not found in bot users - skipping channel tracking`);
+        return;
+      }
+
+      // Determine channel status based on membership status
+      let channelStatus: 'notjoined' | 'joined' | 'left';
+      
+      if (newStatus === 'member' || newStatus === 'administrator' || newStatus === 'creator') {
+        channelStatus = 'joined';
+        
+        // User joined channel - fire Facebook conversion event
+        if (oldStatus === 'left' || oldStatus === 'kicked') {
+          console.log(`🎉 User ${userId} joined campus channel - firing conversion event`);
+          await this.fireChannelJoinConversion(userId);
+        }
+      } else if (newStatus === 'left' || newStatus === 'kicked') {
+        channelStatus = 'left';
+      } else {
+        return; // Skip other status changes
+      }
+
+      // Update channel status in database
+      await storage.updateChannelStatus(userId, channelStatus);
+      console.log(`📊 Updated channel status: User ${userId} -> ${channelStatus}`);
+
+    } catch (error) {
+      console.error("Error handling chat member update:", error);
+    }
+  }
+
+  async fireChannelJoinConversion(telegramUserId: string) {
+    try {
+      // Get user's click data for conversion API
+      const clickData = await storage.getBotUserClickData(telegramUserId);
+      
+      if (!clickData || !clickData.fbc || !clickData.fbp) {
+        console.log(`⚠️ No Facebook data found for user ${telegramUserId} - skipping conversion`);
+        return;
+      }
+
+      // Prepare Facebook Conversion API payload
+      const conversionData = {
+        data: [{
+          event_name: 'Contact',
+          event_time: Math.floor(Date.now() / 1000),
+          action_source: 'website',
+          user_data: {
+            fbc: clickData.fbc,
+            fbp: clickData.fbp,
+          },
+          custom_data: {
+            content_name: 'Campus Free Channel Join',
+            content_category: 'Channel Membership',
+            value: 1.0,
+            currency: 'USD'
+          }
+        }]
+      };
+
+      // Send to Facebook Conversion API
+      const response = await fetch(`https://graph.facebook.com/v18.0/${process.env.FACEBOOK_PIXEL_ID}/events?access_token=${process.env.FACEBOOK_ACCESS_TOKEN}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(conversionData)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`🚀 Facebook conversion fired: User ${telegramUserId} | Contact event`);
+      } else {
+        const error = await response.text();
+        console.error('Facebook conversion API error:', error);
+      }
+
+    } catch (error) {
+      console.error('Error firing channel join conversion:', error);
+    }
+  }
+
   async processUpdate(update: TelegramUpdate) {
     try {
       if (update.message) {
         await this.handleMessage(update.message);
+      } else if (update.chat_member) {
+        await this.handleChatMemberUpdate(update.chat_member);
       }
     } catch (error) {
       console.error("Error processing update:", error);
@@ -268,7 +389,7 @@ export class TelegramBot {
         },
         body: JSON.stringify({
           url: webhookUrl,
-          allowed_updates: ["message"],
+          allowed_updates: ["message", "chat_member"],
         }),
       });
 

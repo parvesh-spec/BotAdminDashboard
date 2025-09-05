@@ -179,13 +179,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.redirect(finalUrl);
       }
 
-      // Serve Facebook Pixel tracking page with auto-redirect
+      // Serve invisible Facebook Pixel tracking page with instant redirect
       const trackingPageHtml = `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redirecting...</title>
+    <title>Loading...</title>
     
     <!-- Facebook Pixel Code -->
     <script>
@@ -198,8 +198,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     s.parentNode.insertBefore(t,s)}(window,document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
     
+    // Fire pixel and redirect immediately
     fbq('init', '${process.env.FACEBOOK_PIXEL_ID}');
     fbq('track', 'PageView');
+    
+    // Instant redirect after pixel fires
+    setTimeout(function() {
+        window.location.href = '${finalUrl}${fbclid ? (finalUrl.includes('?') ? '&' : '?') + 'fbclid=' + fbclid : ''}';
+    }, 100); // Minimal delay for pixel to fire
     </script>
     <noscript>
     <img height="1" width="1" style="display:none" 
@@ -209,50 +215,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     <style>
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
             margin: 0; 
-            background: #f8f9fa;
-        }
-        .container { 
-            text-align: center; 
-            padding: 2rem;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #1877f2;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .redirect-text {
-            color: #65676b;
-            margin-bottom: 1rem;
-        }
-        .redirect-link {
-            color: #1877f2;
-            text-decoration: none;
+            background: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="spinner"></div>
-        <div class="redirect-text">Redirecting you to your destination...</div>
-        <p><a href="${finalUrl}" class="redirect-link">Click here if you're not redirected automatically</a></p>
-    </div>
+    <!-- Blank page - no loading text -->
     
     <script>
         // Function to get cookie value by name
@@ -267,12 +240,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return null;
         }
         
-        // Wait for Facebook Pixel to fire, then capture all data and redirect
+        // Background data processing after redirect
         setTimeout(function() {
             const fbc = getCookie('_fbc');
             const fbp = getCookie('_fbp');
             
-            // Capture all data in one call and then redirect
+            // Background AJAX call - no need to wait for response
             fetch('/api/update-click-data', {
                 method: 'POST',
                 headers: {
@@ -284,18 +257,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     fbclid: '${fbclid || ''}',
                     fbc: fbc || '',
                     fbp: fbp || '',
-                    userAgent: navigator.userAgent,
-                    finalUrl: '${finalUrl}'
+                    userAgent: navigator.userAgent
                 })
-            }).then(() => {
-                // Redirect immediately after data is saved
-                window.location.href = '${finalUrl}${fbclid ? (finalUrl.includes('?') ? '&' : '?') + 'fbclid=' + fbclid : ''}';
-            }).catch(err => {
-                console.log('Data save failed, redirecting anyway:', err);
-                // Redirect even if save fails
-                window.location.href = '${finalUrl}${fbclid ? (finalUrl.includes('?') ? '&' : '?') + 'fbclid=' + fbclid : ''}';
-            });
-        }, 1500); // Wait 1.5 seconds for pixel to set cookies, then save data and redirect
+            }).catch(err => console.log('Background data save failed:', err));
+        }, 1000); // Process data in background after 1 second
     </script>
 </body>
 </html>`;

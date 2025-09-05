@@ -24,6 +24,7 @@ interface IStorage {
   
   // Link click tracking methods
   trackLinkClick(clickData: InsertLinkClick): Promise<LinkClick>;
+  updateClickCookies(messageId: string, userId: string, fbc: string | null, fbp: string | null): Promise<void>;
   getLinkClickStats(welcomeMessageId?: string): Promise<{ total: number; unique: number }>;
   getLinkClicks(welcomeMessageId: string, page: number, limit: number): Promise<{ clicks: LinkClick[]; total: number }>;
 }
@@ -226,6 +227,22 @@ export class DatabaseStorage implements IStorage {
       .values(clickData)
       .returning();
     return click;
+  }
+
+  async updateClickCookies(messageId: string, userId: string, fbc: string | null, fbp: string | null): Promise<void> {
+    // Update the most recent click record for this user and message with Facebook cookies
+    await db
+      .update(linkClicks)
+      .set({ 
+        fbc: fbc,
+        fbp: fbp 
+      })
+      .where(
+        and(
+          eq(linkClicks.welcomeMessageId, messageId),
+          eq(linkClicks.telegramUserId, userId)
+        )
+      );
   }
 
   async getLinkClickStats(welcomeMessageId?: string): Promise<{ total: number; unique: number }> {

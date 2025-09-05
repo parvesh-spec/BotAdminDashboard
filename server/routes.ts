@@ -267,17 +267,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return null;
         }
         
-        // Get Facebook cookies
-        const fbc = getCookie('_fbc');
-        const fbp = getCookie('_fbp');
+        // Wait for Facebook Pixel to set cookies, then update database
+        setTimeout(function() {
+            const fbc = getCookie('_fbc');
+            const fbp = getCookie('_fbp');
+            
+            // If cookies are found, update database via AJAX
+            if (fbc || fbp) {
+                fetch('/api/update-click-cookies', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        messageId: '${messageId}',
+                        userId: '${userId}',
+                        fbc: fbc,
+                        fbp: fbp
+                    })
+                }).catch(err => console.log('Cookie update failed:', err));
+            }
+        }, 2000); // Wait 2 seconds for pixel to set cookies
         
-        // Prepare final URL with cookies
+        // Prepare final URL with Facebook parameters
         let finalUrl = '${finalUrl}';
         const urlParams = new URLSearchParams();
         
         ${fbclid ? `urlParams.append('fbclid', '${fbclid}');` : ''}
-        if (fbc) urlParams.append('fbc', fbc);
-        if (fbp) urlParams.append('fbp', fbp);
         
         if (urlParams.toString()) {
             const separator = finalUrl.includes('?') ? '&' : '?';
@@ -298,6 +314,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error tracking link click:", error);
       res.status(500).json({ message: "Failed to redirect" });
+    }
+  });
+
+  // Update click cookies after Facebook Pixel loads
+  app.post("/api/update-click-cookies", async (req, res) => {
+    try {
+      const { messageId, userId, fbc, fbp } = req.body;
+      
+      if (!messageId || !userId) {
+        return res.status(400).json({ message: "Missing required parameters" });
+      }
+
+      // Update the most recent click record for this user and message
+      await storage.updateClickCookies(messageId, userId, fbc, fbp);
+      
+      console.log(`🍪 Cookies updated: User ${userId}, fbc: ${fbc ? 'YES' : 'NO'}, fbp: ${fbp ? 'YES' : 'NO'}`);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating click cookies:", error);
+      res.status(500).json({ message: "Failed to update cookies" });
     }
   });
 

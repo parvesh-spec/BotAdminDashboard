@@ -1,8 +1,10 @@
 import { useAuth } from "@/hooks/useAuth";
-import { Bot, Users, LogOut } from "lucide-react";
+import { Bot, Users, LogOut, MessageSquare } from "lucide-react";
+import { Link, useLocation } from "wouter";
 
 export default function Sidebar() {
   const { user } = useAuth();
+  const [location] = useLocation();
 
   const handleLogout = () => {
     window.location.href = "/api/logout";
@@ -33,10 +35,23 @@ export default function Sidebar() {
         <nav className="flex-1 px-4 py-6 space-y-2">
           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Management</div>
           
-          <div className="flex items-center px-3 py-2 text-sm font-medium rounded-md bg-secondary text-foreground transition-colors group">
-            <Users className="mr-3 text-muted-foreground group-hover:text-foreground" size={16} />
-            <span data-testid="nav-users">Users</span>
-          </div>
+          <Link href="/" className="block">
+            <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors group cursor-pointer ${
+              location === "/" ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+            }`}>
+              <Users className="mr-3 group-hover:text-foreground" size={16} />
+              <span data-testid="nav-users">Users</span>
+            </div>
+          </Link>
+
+          <Link href="/welcome-message" className="block">
+            <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors group cursor-pointer ${
+              location === "/welcome-message" ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+            }`}>
+              <MessageSquare className="mr-3 group-hover:text-foreground" size={16} />
+              <span data-testid="nav-welcome-message">Welcome Message</span>
+            </div>
+          </Link>
 
           {/* Future navigation items */}
           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-6 mb-3">Bot Settings</div>

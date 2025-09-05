@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
+import WelcomeMessage from "@/pages/welcome-message";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,6 +19,7 @@ function Router() {
       ) : (
         <>
           <Route path="/" component={Dashboard} />
+          <Route path="/welcome-message" component={WelcomeMessage} />
         </>
       )}
       <Route component={NotFound} />

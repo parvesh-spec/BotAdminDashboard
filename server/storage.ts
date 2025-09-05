@@ -1,4 +1,4 @@
-import { users, botUsers, type User, type UpsertUser, type BotUser, type InsertBotUser } from "@shared/schema";
+import { users, botUsers, welcomeMessages, type User, type UpsertUser, type BotUser, type InsertBotUser, type WelcomeMessage, type InsertWelcomeMessage } from "@shared/schema";
 import { db } from "./db";
 import { eq, like, sql, count, desc, and } from "drizzle-orm";
 
@@ -15,6 +15,10 @@ interface IStorage {
   createBotUser(userData: InsertBotUser): Promise<BotUser>;
   updateBotUserActivity(telegramId: string): Promise<void>;
   getBotUserSources(): Promise<string[]>;
+  
+  // Welcome message methods
+  getWelcomeMessage(): Promise<WelcomeMessage | undefined>;
+  upsertWelcomeMessage(messageData: InsertWelcomeMessage): Promise<WelcomeMessage>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -134,6 +138,40 @@ export class DatabaseStorage implements IStorage {
       .orderBy(botUsers.source);
     
     return result.map(row => row.source);
+  }
+
+  async getWelcomeMessage(): Promise<WelcomeMessage | undefined> {
+    const [message] = await db
+      .select()
+      .from(welcomeMessages)
+      .orderBy(desc(welcomeMessages.createdAt))
+      .limit(1);
+    return message || undefined;
+  }
+
+  async upsertWelcomeMessage(messageData: InsertWelcomeMessage): Promise<WelcomeMessage> {
+    // Check if a welcome message already exists
+    const existingMessage = await this.getWelcomeMessage();
+    
+    if (existingMessage) {
+      // Update existing message
+      const [updatedMessage] = await db
+        .update(welcomeMessages)
+        .set({ 
+          ...messageData, 
+          updatedAt: new Date() 
+        })
+        .where(eq(welcomeMessages.id, existingMessage.id))
+        .returning();
+      return updatedMessage;
+    } else {
+      // Create new message
+      const [newMessage] = await db
+        .insert(welcomeMessages)
+        .values(messageData)
+        .returning();
+      return newMessage;
+    }
   }
 }
 

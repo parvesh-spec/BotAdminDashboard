@@ -50,15 +50,32 @@ export const botUsers = pgTable("bot_users", {
   messageCount: integer("message_count").default(0),
 });
 
+// Welcome message configuration
+export const welcomeMessages = pgTable("welcome_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  message: text("message").notNull(),
+  isEnabled: varchar("is_enabled").default("true").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const insertBotUserSchema = createInsertSchema(botUsers).omit({
   id: true,
   joinedAt: true,
+});
+
+export const insertWelcomeMessageSchema = createInsertSchema(welcomeMessages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type BotUser = typeof botUsers.$inferSelect;
 export type InsertBotUser = z.infer<typeof insertBotUserSchema>;
+export type WelcomeMessage = typeof welcomeMessages.$inferSelect;
+export type InsertWelcomeMessage = z.infer<typeof insertWelcomeMessageSchema>;
 
 // Auth types for frontend
 export type AuthUser = {

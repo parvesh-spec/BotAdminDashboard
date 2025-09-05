@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a full-stack web application for managing a Telegram bot's users. The system provides an admin dashboard to view bot user statistics, search and filter users, and track user engagement metrics. Built with a modern React frontend and Express.js backend, it features secure authentication through Replit's OAuth system and uses PostgreSQL for data persistence.
+This is a full-stack web application for managing a real-time Telegram bot. The system provides an admin dashboard to view bot user statistics, manage welcome messages, and track user engagement metrics in real-time. Built with a modern React frontend and Express.js backend, it features simple username/password authentication and uses PostgreSQL for data persistence. The Telegram bot is fully integrated with webhook support for instant message processing.
 
 ## User Preferences
 
@@ -30,15 +30,23 @@ Preferred communication style: Simple, everyday language.
 - **Database**: PostgreSQL with Neon serverless driver
 - **Schema Management**: Drizzle Kit for migrations and schema management
 - **Tables**:
-  - `users` - Admin user authentication data
+  - `users` - Admin user authentication data with password hashing
   - `sessions` - Session storage for authentication
-  - `botUsers` - Telegram bot user data with metrics
+  - `botUsers` - Telegram bot user data with metrics and activity tracking
+  - `welcomeMessages` - Customizable welcome message configuration
 
 ### Authentication & Authorization
-- **OAuth Provider**: Replit's OpenID Connect service
-- **Session Security**: HTTP-only cookies with secure flags
+- **Simple Authentication**: Username/password login system
+- **Session Security**: HTTP-only cookies with secure flags  
 - **Protected Routes**: Middleware-based route protection
-- **User Management**: Automatic user creation on first login
+- **Admin Account**: Single admin user with database credentials
+
+### Telegram Bot Integration
+- **Real-time Processing**: Webhook-based message handling
+- **User Registration**: Automatic user tracking when they start the bot
+- **Welcome Messages**: Customizable welcome message management
+- **Command Support**: /start, /help, /stats commands
+- **Activity Tracking**: Message count and last activity monitoring
 
 ### Key Design Patterns
 - **Monorepo Structure**: Shared schema definitions between client and server

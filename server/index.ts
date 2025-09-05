@@ -65,7 +65,31 @@ app.use((req, res, next) => {
     port,
     host: "0.0.0.0",
     reusePort: true,
-  }, () => {
+  }, async () => {
     log(`serving on port ${port}`);
+    
+    // Set up Telegram webhook automatically
+    if (process.env.TELEGRAM_BOT_TOKEN && process.env.REPLIT_DOMAINS) {
+      try {
+        const domain = process.env.REPLIT_DOMAINS.split(',')[0];
+        const webhookUrl = `https://${domain}/api/telegram/webhook`;
+        
+        // Import telegramBot here to avoid circular dependencies
+        const { telegramBot } = await import("./telegramBot");
+        const result = await telegramBot.setWebhook(webhookUrl);
+        
+        if (result.ok) {
+          log(`✅ Telegram webhook set up successfully: ${webhookUrl}`);
+          const botInfo = await telegramBot.getMe();
+          if (botInfo.ok) {
+            log(`🤖 Bot ready: @${botInfo.result.username}`);
+          }
+        } else {
+          log(`❌ Failed to set up webhook: ${result.description}`);
+        }
+      } catch (error) {
+        log(`⚠️ Webhook setup error: ${error}`);
+      }
+    }
   });
 })();

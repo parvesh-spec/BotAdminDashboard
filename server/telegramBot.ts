@@ -100,7 +100,7 @@ export class TelegramBot {
       let reply_markup;
       if (welcomeMessageConfig?.buttonText && welcomeMessageConfig?.buttonLink) {
         // Create tracked URL for click analytics with fbclid parameter
-        let trackingUrl = `${process.env.REPL_URL || 'https://2635970f-1194-40c9-a633-2b7dc8587abe-00-3cb1axvzvtdyu.spock.replit.dev'}/r/${welcomeMessageConfig.id}/${telegramUserId || chatId}`;
+        let trackingUrl = `${process.env.REPL_URL || 'https://bot-admin-dashboard-parveshsangwan1.replit.app'}/r/${welcomeMessageConfig.id}/${telegramUserId || chatId}`;
         
         // Add fbclid parameter to tracking URL if available
         if (fbclid) {
@@ -335,7 +335,7 @@ export class TelegramBot {
           event_name: 'Contact',
           event_time: Math.floor(Date.now() / 1000),
           action_source: 'website',
-          event_source_url: `${process.env.REPL_URL || 'https://2635970f-1194-40c9-a633-2b7dc8587abe-00-3cb1axvzvtdyu.spock.replit.dev'}/telegram-channel-join`,
+          event_source_url: `${process.env.REPL_URL || 'https://bot-admin-dashboard-parveshsangwan1.replit.app'}/telegram-channel-join`,
           user_data: {
             fbc: clickData.fbc,
             fbp: clickData.fbp,

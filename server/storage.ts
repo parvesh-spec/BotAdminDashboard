@@ -128,7 +128,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateBotUserActivity(telegramId: string, fbclid?: string | null): Promise<void> {
+  async updateBotUserActivity(telegramId: string, fbclid?: string | null, source?: string): Promise<void> {
     const updateData: any = { 
       lastActiveAt: new Date(),
       messageCount: sql`${botUsers.messageCount} + 1`
@@ -137,6 +137,11 @@ export class DatabaseStorage implements IStorage {
     // Update fbclid if provided (for returning users from Facebook)
     if (fbclid) {
       updateData.fbclid = fbclid;
+    }
+    
+    // Update source if provided (for returning users from different campaigns)
+    if (source) {
+      updateData.source = source;
     }
     
     await db

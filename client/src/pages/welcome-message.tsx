@@ -21,6 +21,8 @@ const welcomeMessageSchema = z.object({
   source: z.string().min(1, "Source is required"),
   title: z.string().min(1, "Title is required"),
   message: z.string().min(1, "Welcome message is required").max(4096, "Message is too long"),
+  buttonText: z.string().optional(),
+  buttonLink: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   isEnabled: z.string().default("true"),
 });
 
@@ -43,6 +45,8 @@ export default function WelcomeMessage() {
       source: "",
       title: "",
       message: "Welcome to our Telegram bot! 🤖\n\nHere are some things you can do:\n• Get help and support\n• Explore our features\n• Stay updated with latest news\n\nFeel free to ask any questions!",
+      buttonText: "",
+      buttonLink: "",
       isEnabled: "true",
     },
   });
@@ -114,6 +118,8 @@ export default function WelcomeMessage() {
       source: message.source,
       title: message.title || "",
       message: message.message,
+      buttonText: message.buttonText || "",
+      buttonLink: message.buttonLink || "",
       isEnabled: message.isEnabled,
     });
     setShowCreateDialog(true);
@@ -125,6 +131,8 @@ export default function WelcomeMessage() {
       source: "",
       title: "",
       message: "Welcome to our Telegram bot! 🤖\n\nHere are some things you can do:\n• Get help and support\n• Explore our features\n• Stay updated with latest news\n\nFeel free to ask any questions!",
+      buttonText: "",
+      buttonLink: "",
       isEnabled: "true",
     });
     setShowCreateDialog(true);
@@ -380,6 +388,13 @@ export default function WelcomeMessage() {
                             <div className="whitespace-pre-wrap text-sm" data-testid="text-message-preview">
                               {currentMessage.message.replace(/\{firstName\}/g, "John")}
                             </div>
+                            {currentMessage.buttonText && currentMessage.buttonLink && (
+                              <div className="mt-3">
+                                <button className="bg-blue-500 text-white px-4 py-2 rounded text-sm font-medium">
+                                  {currentMessage.buttonText}
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -468,7 +483,7 @@ export default function WelcomeMessage() {
                       <Textarea
                         {...field}
                         placeholder="Enter your welcome message..."
-                        className="min-h-[200px] font-mono text-sm"
+                        className="min-h-[160px] font-mono text-sm"
                         data-testid="textarea-welcome-message"
                       />
                     </FormControl>
@@ -479,6 +494,43 @@ export default function WelcomeMessage() {
                   </FormItem>
                 )}
               />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="buttonText"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Button Text (Optional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="e.g., Visit Website"
+                          data-testid="input-button-text"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="buttonLink"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Button Link (Optional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="https://example.com"
+                          data-testid="input-button-link"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}

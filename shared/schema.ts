@@ -57,8 +57,21 @@ export const welcomeMessages = pgTable("welcome_messages", {
   message: text("message").notNull(),
   isEnabled: varchar("is_enabled").default("true").notNull(),
   title: varchar("title").default("Default Welcome Message"),
+  buttonText: varchar("button_text"), // Optional inline button text
+  buttonLink: text("button_link"), // Optional inline button link
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Click tracking for button links
+export const linkClicks = pgTable("link_clicks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  welcomeMessageId: varchar("welcome_message_id").references(() => welcomeMessages.id),
+  telegramUserId: varchar("telegram_user_id"),
+  originalUrl: text("original_url").notNull(),
+  userAgent: text("user_agent"),
+  ipAddress: varchar("ip_address"),
+  clickedAt: timestamp("clicked_at").defaultNow(),
 });
 
 export const insertBotUserSchema = createInsertSchema(botUsers).omit({
@@ -72,12 +85,19 @@ export const insertWelcomeMessageSchema = createInsertSchema(welcomeMessages).om
   updatedAt: true,
 });
 
+export const insertLinkClickSchema = createInsertSchema(linkClicks).omit({
+  id: true,
+  clickedAt: true,
+});
+
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type BotUser = typeof botUsers.$inferSelect;
 export type InsertBotUser = z.infer<typeof insertBotUserSchema>;
 export type WelcomeMessage = typeof welcomeMessages.$inferSelect;
 export type InsertWelcomeMessage = z.infer<typeof insertWelcomeMessageSchema>;
+export type LinkClick = typeof linkClicks.$inferSelect;
+export type InsertLinkClick = z.infer<typeof insertLinkClickSchema>;
 
 // Auth types for frontend
 export type AuthUser = {

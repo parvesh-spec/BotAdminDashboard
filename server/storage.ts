@@ -1,4 +1,4 @@
-import { users, botUsers, welcomeMessages, type User, type UpsertUser, type BotUser, type InsertBotUser, type WelcomeMessage, type InsertWelcomeMessage } from "@shared/schema";
+import { users, botUsers, welcomeMessages, linkClicks, type User, type UpsertUser, type BotUser, type InsertBotUser, type WelcomeMessage, type InsertWelcomeMessage, type LinkClick, type InsertLinkClick } from "@shared/schema";
 import { db } from "./db";
 import { eq, like, sql, count, desc, and } from "drizzle-orm";
 
@@ -21,6 +21,10 @@ interface IStorage {
   getAllWelcomeMessages(): Promise<WelcomeMessage[]>;
   upsertWelcomeMessage(messageData: InsertWelcomeMessage): Promise<WelcomeMessage>;
   deleteWelcomeMessage(id: string): Promise<void>;
+  
+  // Link click tracking methods
+  trackLinkClick(clickData: InsertLinkClick): Promise<LinkClick>;
+  getLinkClickStats(welcomeMessageId?: string): Promise<{ total: number; unique: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -206,6 +210,39 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(welcomeMessages)
       .where(eq(welcomeMessages.id, id));
+  }
+
+  async trackLinkClick(clickData: InsertLinkClick): Promise<LinkClick> {
+    const [click] = await db
+      .insert(linkClicks)
+      .values(clickData)
+      .returning();
+    return click;
+  }
+
+  async getLinkClickStats(welcomeMessageId?: string): Promise<{ total: number; unique: number }> {
+    const whereClause = welcomeMessageId 
+      ? eq(linkClicks.welcomeMessageId, welcomeMessageId)
+      : undefined;
+
+    // Get total clicks
+    const [totalResult] = await db
+      .select({ count: count() })
+      .from(linkClicks)
+      .where(whereClause);
+
+    // Get unique clicks (unique telegram users)
+    const [uniqueResult] = await db
+      .select({ 
+        count: sql<number>`COUNT(DISTINCT ${linkClicks.telegramUserId})` 
+      })
+      .from(linkClicks)
+      .where(whereClause);
+
+    return {
+      total: totalResult?.count || 0,
+      unique: uniqueResult?.count || 0,
+    };
   }
 }
 

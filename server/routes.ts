@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./simpleAuth";
-import { insertBotUserSchema, insertWelcomeMessageSchema } from "@shared/schema";
+import { insertBotUserSchema, insertWelcomeMessageSchema, insertLinkClickSchema } from "@shared/schema";
 import { telegramBot } from "./telegramBot";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -130,6 +130,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting welcome message:", error);
       res.status(500).json({ message: "Failed to delete welcome message" });
+    }
+  });
+
+  // Link redirect and tracking endpoint
+  app.get("/r/:messageId/:userId", async (req, res) => {
+    try {
+      const { messageId, userId } = req.params;
+      
+      // Get the welcome message to find the original URL
+      const messages = await storage.getAllWelcomeMessages();
+      const message = messages.find(m => m.id === messageId);
+      
+      if (!message || !message.buttonLink) {
+        return res.status(404).json({ message: "Link not found" });
+      }
+
+      // Track the click
+      await storage.trackLinkClick({
+        welcomeMessageId: messageId,
+        telegramUserId: userId,
+        originalUrl: message.buttonLink,
+        userAgent: req.headers['user-agent'] || null,
+        ipAddress: req.ip || req.connection.remoteAddress || null,
+      });
+
+      console.log(`📊 Link clicked: ${message.source} -> ${message.buttonLink} by user ${userId}`);
+
+      // Redirect to original URL
+      res.redirect(message.buttonLink);
+    } catch (error) {
+      console.error("Error tracking link click:", error);
+      res.status(500).json({ message: "Failed to redirect" });
+    }
+  });
+
+  // Get link click stats
+  app.get("/api/link-stats/:messageId?", isAuthenticated, async (req, res) => {
+    try {
+      const { messageId } = req.params;
+      const stats = await storage.getLinkClickStats(messageId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching link stats:", error);
+      res.status(500).json({ message: "Failed to fetch link stats" });
     }
   });
 

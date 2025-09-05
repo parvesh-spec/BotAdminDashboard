@@ -64,7 +64,7 @@ export class TelegramBot {
     }
   }
 
-  async sendWelcomeMessage(chatId: number, firstName: string, source?: string) {
+  async sendWelcomeMessage(chatId: number, firstName: string, source?: string, telegramUserId?: string) {
     try {
       const welcomeMessageConfig = await storage.getWelcomeMessage(source);
       
@@ -77,7 +77,23 @@ export class TelegramBot {
       // Personalize the message
       const personalizedMessage = message.replace(/\{firstName\}/g, firstName);
 
-      await this.sendMessage(chatId, personalizedMessage);
+      // Create inline keyboard if button text and link are provided
+      let reply_markup;
+      if (welcomeMessageConfig?.buttonText && welcomeMessageConfig?.buttonLink) {
+        // Create tracked URL for click analytics
+        const trackingUrl = `${process.env.REPL_URL || 'https://2635970f-1194-40c9-a633-2b7dc8587abe-00-3cb1axvzvtdyu.spock.replit.dev'}/r/${welcomeMessageConfig.id}/${telegramUserId || chatId}`;
+        
+        reply_markup = {
+          inline_keyboard: [[
+            {
+              text: welcomeMessageConfig.buttonText,
+              url: trackingUrl
+            }
+          ]]
+        };
+      }
+
+      await this.sendMessage(chatId, personalizedMessage, reply_markup ? { reply_markup } : {});
     } catch (error) {
       console.error("Error sending welcome message:", error);
       // Send a fallback message
@@ -122,7 +138,7 @@ export class TelegramBot {
       }
 
       // Send welcome message
-      await this.sendWelcomeMessage(chatId, user.first_name, source);
+      await this.sendWelcomeMessage(chatId, user.first_name, source, user.id.toString());
 
     } catch (error) {
       console.error("❌ Error handling start command:", error);

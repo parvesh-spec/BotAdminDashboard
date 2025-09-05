@@ -190,7 +190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     s.parentNode.insertBefore(t,s)}(window,document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
     
-    fbq('init', 'YOUR_PIXEL_ID'); // Replace with actual Facebook Pixel ID
+    fbq('init', '${process.env.FACEBOOK_PIXEL_ID}');
     fbq('track', 'PageView');
     
     // Custom event for bot link clicks
@@ -203,7 +203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     </script>
     <noscript>
     <img height="1" width="1" style="display:none" 
-         src="https://www.facebook.com/tr?id=YOUR_PIXEL_ID&ev=PageView&noscript=1"/>
+         src="https://www.facebook.com/tr?id=${process.env.FACEBOOK_PIXEL_ID}&ev=PageView&noscript=1"/>
     </noscript>
     <!-- End Facebook Pixel Code -->
     

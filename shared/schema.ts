@@ -71,6 +71,8 @@ export const linkClicks = pgTable("link_clicks", {
   telegramUserId: varchar("telegram_user_id"),
   originalUrl: text("original_url").notNull(),
   fbclid: varchar("fbclid"), // Facebook Click ID passed through for attribution
+  fbc: varchar("fbc"), // Facebook Browser Cookie for server-side events
+  fbp: varchar("fbp"), // Facebook Pixel Cookie for server-side events
   userAgent: text("user_agent"),
   ipAddress: varchar("ip_address"),
   clickedAt: timestamp("clicked_at").defaultNow(),

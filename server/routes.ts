@@ -137,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/r/:messageId/:userId", async (req, res) => {
     try {
       const { messageId, userId } = req.params;
-      const { fbclid } = req.query;
+      const { fbclid, fbc, fbp } = req.query;
       
       // Get the welcome message to find the original URL
       const messages = await storage.getAllWelcomeMessages();
@@ -147,23 +147,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Link not found" });
       }
 
-      // Track the click with fbclid
+      // Track the click with fbclid, fbc, and fbp
       await storage.trackLinkClick({
         welcomeMessageId: messageId,
         telegramUserId: userId,
         originalUrl: message.buttonLink,
         fbclid: fbclid as string || null,
+        fbc: fbc as string || null,
+        fbp: fbp as string || null,
         userAgent: req.headers['user-agent'] || null,
         ipAddress: req.ip || req.connection.remoteAddress || null,
       });
 
-      console.log(`📊 Link clicked: ${message.source} -> ${message.buttonLink} by user ${userId}${fbclid ? ` [fbclid: ${fbclid}]` : ''}`);
+      console.log(`📊 Link clicked: ${message.source} -> ${message.buttonLink} by user ${userId}${fbclid ? ` [fbclid: ${fbclid}]` : ''}${fbc ? ` [fbc: ${fbc}]` : ''}${fbp ? ` [fbp: ${fbp}]` : ''}`);
 
-      // Prepare final URL with fbclid parameter if available
+      // Prepare final URL with Facebook parameters
       let finalUrl = message.buttonLink;
-      if (fbclid) {
+      const urlParams = new URLSearchParams();
+      
+      if (fbclid) urlParams.append('fbclid', fbclid as string);
+      if (fbc) urlParams.append('fbc', fbc as string);
+      if (fbp) urlParams.append('fbp', fbp as string);
+      
+      if (urlParams.toString()) {
         const separator = finalUrl.includes('?') ? '&' : '?';
-        finalUrl += `${separator}fbclid=${fbclid}`;
+        finalUrl += `${separator}${urlParams.toString()}`;
       }
 
       // If this is a direct redirect (not requesting Facebook Pixel tracking page)
@@ -247,9 +255,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     </div>
     
     <script>
+        // Function to get cookie value by name
+        function getCookie(name) {
+            let nameEQ = name + "=";
+            let ca = document.cookie.split(';');
+            for(let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+            }
+            return null;
+        }
+        
+        // Get Facebook cookies
+        const fbc = getCookie('_fbc');
+        const fbp = getCookie('_fbp');
+        
+        // Prepare final URL with cookies
+        let finalUrl = '${finalUrl}';
+        const urlParams = new URLSearchParams();
+        
+        ${fbclid ? `urlParams.append('fbclid', '${fbclid}');` : ''}
+        if (fbc) urlParams.append('fbc', fbc);
+        if (fbp) urlParams.append('fbp', fbp);
+        
+        if (urlParams.toString()) {
+            const separator = finalUrl.includes('?') ? '&' : '?';
+            finalUrl += separator + urlParams.toString();
+        }
+        
         // Auto redirect after tracking
         setTimeout(function() {
-            window.location.href = '${finalUrl}';
+            window.location.href = finalUrl;
         }, 1000);
     </script>
 </body>

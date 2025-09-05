@@ -333,15 +333,14 @@ export class TelegramBot {
           event_name: 'Contact',
           event_time: Math.floor(Date.now() / 1000),
           action_source: 'website',
+          event_source_url: `${process.env.REPL_URL || 'https://2635970f-1194-40c9-a633-2b7dc8587abe-00-3cb1axvzvtdyu.spock.replit.dev'}/telegram-channel-join`,
           user_data: {
             fbc: clickData.fbc,
             fbp: clickData.fbp,
           },
           custom_data: {
             content_name: 'Campus Free Channel Join',
-            content_category: 'Channel Membership',
-            value: 1.0,
-            currency: 'USD'
+            content_category: 'Channel Membership'
           }
         }]
       };

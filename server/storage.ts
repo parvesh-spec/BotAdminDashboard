@@ -322,12 +322,19 @@ export class DatabaseStorage implements IStorage {
 
   // Channel tracking methods implementation
   async updateChannelStatus(telegramId: string, status: 'notjoined' | 'joined' | 'left'): Promise<void> {
+    const updateData: any = { 
+      campusFreeChannel: status,
+      lastActiveAt: new Date()
+    };
+    
+    // Set channel joined timestamp when user joins
+    if (status === 'joined') {
+      updateData.channelJoinedAt = new Date();
+    }
+    
     await db
       .update(botUsers)
-      .set({ 
-        campusFreeChannel: status,
-        lastActiveAt: new Date()
-      })
+      .set(updateData)
       .where(eq(botUsers.telegramId, telegramId));
   }
 

@@ -81,19 +81,61 @@ export default function UserTable() {
     }
   };
 
-  const formatTimeAgo = (date: string | Date) => {
-    const now = new Date();
-    const past = new Date(date);
-    const diffInHours = Math.floor((now.getTime() - past.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) {
-      return "Just now";
-    } else if (diffInHours < 24) {
-      return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
-    } else {
-      const diffInDays = Math.floor(diffInHours / 24);
-      return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+  const getChannelStatusVariant = (status: string | null) => {
+    switch (status) {
+      case "joined":
+        return "default";
+      case "left":
+        return "secondary";
+      case "notjoined":
+      default:
+        return "outline";
     }
+  };
+
+  const getChannelStatusText = (status: string | null) => {
+    switch (status) {
+      case "joined":
+        return "Joined";
+      case "left":
+        return "Left";
+      case "notjoined":
+      default:
+        return "Not Joined";
+    }
+  };
+
+  const formatTimestamp = (date: string | Date | null) => {
+    if (!date) return "Never";
+    
+    const dateObj = new Date(date);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - dateObj.getTime()) / (1000 * 60));
+    
+    // Show actual timestamp format
+    const timeStr = dateObj.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    const dateStr = dateObj.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
+    });
+    
+    // If it's today, just show time
+    if (dateObj.toDateString() === now.toDateString()) {
+      return timeStr;
+    }
+    
+    // If it's within a week, show day and time
+    const diffInDays = Math.floor(diffInMinutes / (60 * 24));
+    if (diffInDays < 7) {
+      return `${dateStr}, ${timeStr}`;
+    }
+    
+    // For older dates, show full date and time
+    return `${dateStr} ${dateObj.getFullYear()}, ${timeStr}`;
   };
 
   if (isLoading) {
@@ -156,8 +198,9 @@ export default function UserTable() {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Source</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead>Last Active</TableHead>
+                <TableHead>Bot Interaction Time</TableHead>
+                <TableHead>Channel Status</TableHead>
+                <TableHead>Channel Joined Time</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -191,10 +234,19 @@ export default function UserTable() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground" data-testid={`text-joined-${user.id}`}>
-                      {formatTimeAgo(user.joinedAt)}
+                      {formatTimestamp(user.joinedAt)}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground" data-testid={`text-last-active-${user.id}`}>
-                      {user.lastActiveAt ? formatTimeAgo(user.lastActiveAt) : "Never"}
+                    <TableCell>
+                      <Badge 
+                        variant={getChannelStatusVariant(user.campusFreeChannel)} 
+                        className={user.campusFreeChannel === "joined" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : ""}
+                        data-testid={`badge-channel-status-${user.id}`}
+                      >
+                        {getChannelStatusText(user.campusFreeChannel)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground" data-testid={`text-channel-joined-${user.id}`}>
+                      {user.channelJoinedAt ? formatTimestamp(user.channelJoinedAt) : "Not joined"}
                     </TableCell>
                     <TableCell>
                       <Badge 
@@ -229,7 +281,7 @@ export default function UserTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     <div className="text-muted-foreground">
                       {search || sourceFilter !== "all" ? "No users found matching your filters" : "No bot users yet"}
                     </div>

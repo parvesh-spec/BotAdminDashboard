@@ -17,8 +17,10 @@ interface IStorage {
   getBotUserSources(): Promise<string[]>;
   
   // Welcome message methods
-  getWelcomeMessage(): Promise<WelcomeMessage | undefined>;
+  getWelcomeMessage(source?: string): Promise<WelcomeMessage | undefined>;
+  getAllWelcomeMessages(): Promise<WelcomeMessage[]>;
   upsertWelcomeMessage(messageData: InsertWelcomeMessage): Promise<WelcomeMessage>;
+  deleteWelcomeMessage(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -140,20 +142,46 @@ export class DatabaseStorage implements IStorage {
     return result.map(row => row.source);
   }
 
-  async getWelcomeMessage(): Promise<WelcomeMessage | undefined> {
-    const [message] = await db
+  async getWelcomeMessage(source?: string): Promise<WelcomeMessage | undefined> {
+    const targetSource = source || "default";
+    
+    // Try to find source-specific message first
+    const [specificMessage] = await db
       .select()
       .from(welcomeMessages)
-      .orderBy(desc(welcomeMessages.createdAt))
+      .where(eq(welcomeMessages.source, targetSource))
       .limit(1);
-    return message || undefined;
+    
+    if (specificMessage) {
+      return specificMessage;
+    }
+    
+    // Fallback to default message
+    const [defaultMessage] = await db
+      .select()
+      .from(welcomeMessages)
+      .where(eq(welcomeMessages.source, "default"))
+      .limit(1);
+    
+    return defaultMessage || undefined;
+  }
+
+  async getAllWelcomeMessages(): Promise<WelcomeMessage[]> {
+    return await db
+      .select()
+      .from(welcomeMessages)
+      .orderBy(welcomeMessages.source);
   }
 
   async upsertWelcomeMessage(messageData: InsertWelcomeMessage): Promise<WelcomeMessage> {
-    // Check if a welcome message already exists
-    const existingMessage = await this.getWelcomeMessage();
+    // Check if a message for this source already exists
+    const existingMessage = await db
+      .select()
+      .from(welcomeMessages)
+      .where(eq(welcomeMessages.source, messageData.source || "default"))
+      .limit(1);
     
-    if (existingMessage) {
+    if (existingMessage.length > 0) {
       // Update existing message
       const [updatedMessage] = await db
         .update(welcomeMessages)
@@ -161,7 +189,7 @@ export class DatabaseStorage implements IStorage {
           ...messageData, 
           updatedAt: new Date() 
         })
-        .where(eq(welcomeMessages.id, existingMessage.id))
+        .where(eq(welcomeMessages.id, existingMessage[0].id))
         .returning();
       return updatedMessage;
     } else {
@@ -172,6 +200,12 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return newMessage;
     }
+  }
+
+  async deleteWelcomeMessage(id: string): Promise<void> {
+    await db
+      .delete(welcomeMessages)
+      .where(eq(welcomeMessages.id, id));
   }
 }
 

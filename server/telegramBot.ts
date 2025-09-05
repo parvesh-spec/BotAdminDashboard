@@ -64,9 +64,9 @@ export class TelegramBot {
     }
   }
 
-  async sendWelcomeMessage(chatId: number, firstName: string) {
+  async sendWelcomeMessage(chatId: number, firstName: string, source?: string) {
     try {
-      const welcomeMessageConfig = await storage.getWelcomeMessage();
+      const welcomeMessageConfig = await storage.getWelcomeMessage(source);
       
       let message = "Welcome to our Telegram bot! 🤖\n\nHere are some things you can do:\n• Get help and support\n• Explore our features\n• Stay updated with latest news\n\nFeel free to ask any questions!";
       
@@ -122,7 +122,7 @@ export class TelegramBot {
       }
 
       // Send welcome message
-      await this.sendWelcomeMessage(chatId, user.first_name);
+      await this.sendWelcomeMessage(chatId, user.first_name, source);
 
     } catch (error) {
       console.error("❌ Error handling start command:", error);

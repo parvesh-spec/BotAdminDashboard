@@ -80,14 +80,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Welcome Message API Routes
-  app.get("/api/welcome-message", isAuthenticated, async (req, res) => {
+  app.get("/api/welcome-messages", isAuthenticated, async (req, res) => {
     try {
-      const welcomeMessage = await storage.getWelcomeMessage();
+      const welcomeMessages = await storage.getAllWelcomeMessages();
+      res.json(welcomeMessages);
+    } catch (error) {
+      console.error("Error fetching welcome messages:", error);
+      res.status(500).json({ message: "Failed to fetch welcome messages" });
+    }
+  });
+
+  app.get("/api/welcome-message/:source?", isAuthenticated, async (req, res) => {
+    try {
+      const { source } = req.params;
+      const welcomeMessage = await storage.getWelcomeMessage(source);
       if (!welcomeMessage) {
         // Return default welcome message if none exists
         res.json({
           message: "Welcome to our Telegram bot! 🤖\n\nHere are some things you can do:\n• Get help and support\n• Explore our features\n• Stay updated with latest news\n\nFeel free to ask any questions!",
-          isEnabled: "true"
+          isEnabled: "true",
+          source: source || "default",
+          title: `${source || "Default"} Welcome Message`
         });
       } else {
         res.json(welcomeMessage);
@@ -106,6 +119,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating welcome message:", error);
       res.status(400).json({ message: "Failed to update welcome message" });
+    }
+  });
+
+  app.delete("/api/welcome-message/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteWelcomeMessage(id);
+      res.json({ message: "Welcome message deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting welcome message:", error);
+      res.status(500).json({ message: "Failed to delete welcome message" });
     }
   });
 

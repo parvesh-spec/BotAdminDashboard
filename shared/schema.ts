@@ -53,8 +53,10 @@ export const botUsers = pgTable("bot_users", {
 // Welcome message configuration
 export const welcomeMessages = pgTable("welcome_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  source: varchar("source").notNull().default("default"), // "default", "facebookads", "referral", etc.
   message: text("message").notNull(),
   isEnabled: varchar("is_enabled").default("true").notNull(),
+  title: varchar("title").default("Default Welcome Message"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

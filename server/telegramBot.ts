@@ -90,16 +90,8 @@ export class TelegramBot {
     const chatId = message.chat.id;
 
     try {
-      // Check if user already exists
-      const existingUsers = await storage.getBotUsers({
-        search: user.id.toString(),
-        source: "",
-        page: 1,
-        limit: 1
-      });
-
-      if (existingUsers.users.length === 0) {
-        // Create new user
+      // Try to create new user, if already exists, update activity
+      try {
         await storage.createBotUser({
           telegramId: user.id.toString(),
           username: user.username || null,
@@ -107,20 +99,23 @@ export class TelegramBot {
           lastName: user.last_name || null,
           source: "Direct", // Default source for /start command
         });
-
-        console.log(`New user registered: ${user.first_name} (${user.id})`);
-      } else {
-        // Update existing user activity
-        await storage.updateBotUserActivity(user.id.toString());
-        console.log(`Existing user started bot: ${user.first_name} (${user.id})`);
+        console.log(`✅ New user registered: ${user.first_name} (${user.id})`);
+      } catch (createError: any) {
+        // If user already exists (duplicate key error), update their activity
+        if (createError.code === '23505' || createError.message?.includes('duplicate key')) {
+          await storage.updateBotUserActivity(user.id.toString());
+          console.log(`🔄 Existing user restarted bot: ${user.first_name} (${user.id})`);
+        } else {
+          throw createError; // Re-throw if it's a different error
+        }
       }
 
       // Send welcome message
       await this.sendWelcomeMessage(chatId, user.first_name);
 
     } catch (error) {
-      console.error("Error handling start command:", error);
-      await this.sendMessage(chatId, "Welcome! There was an issue with registration, but you can still use the bot.");
+      console.error("❌ Error handling start command:", error);
+      await this.sendMessage(chatId, `Welcome ${user.first_name}! 🤖`);
     }
   }
 

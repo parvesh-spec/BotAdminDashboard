@@ -3,12 +3,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Users, UserPlus, Link, Send } from "lucide-react";
 
 interface BotUserStats {
-  totalUsers: number;
-  todayUsers: number;
-  activeSources: number;
-  messagesSent: number;
-  todayGrowth: number;
-  weeklyGrowth: number;
+  total: number;
+  active: number;
+  inactive: number;
+  todayJoined: number;
 }
 
 export default function UserStats() {
@@ -37,25 +35,25 @@ export default function UserStats() {
   const statCards = [
     {
       title: "Total Users",
-      value: stats?.totalUsers || 0,
+      value: stats?.total || 0,
       icon: Users,
-      change: `+${stats?.weeklyGrowth || 0}%`,
+      change: `+${stats?.todayJoined || 0}`,
       changeText: "from last week",
       bgColor: "bg-primary/10",
       iconColor: "text-primary"
     },
     {
       title: "Today's New Users",
-      value: stats?.todayUsers || 0,
+      value: stats?.todayJoined || 0,
       icon: UserPlus,
-      change: `+${stats?.todayGrowth || 0}`,
+      change: stats?.todayJoined ? "new today" : "no new users",
       changeText: "since yesterday",
       bgColor: "bg-accent/10",
       iconColor: "text-accent"
     },
     {
       title: "Active Sources",
-      value: stats?.activeSources || 0,
+      value: stats?.active || 0,
       icon: Link,
       change: "tracking enabled",
       changeText: "",
@@ -64,10 +62,10 @@ export default function UserStats() {
     },
     {
       title: "Messages Sent",
-      value: stats?.messagesSent || 0,
+      value: stats?.active || 0,
       icon: Send,
-      change: `+${Math.floor((stats?.messagesSent || 0) * 0.02)}`,
-      changeText: "today",
+      change: `${stats?.inactive || 0} inactive`,
+      changeText: "users",
       bgColor: "bg-secondary",
       iconColor: "text-muted-foreground"
     }

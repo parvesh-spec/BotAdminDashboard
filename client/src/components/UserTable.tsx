@@ -36,7 +36,20 @@ export default function UserTable() {
   const limit = 10;
 
   const { data: usersData, isLoading } = useQuery<BotUsersResponse>({
-    queryKey: ["/api/bot-users", { search, source: sourceFilter === "all" ? "" : sourceFilter, page, limit }],
+    queryKey: ["/api/bot-users", search, sourceFilter, page, limit],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+      
+      if (search) params.append('search', search);
+      if (sourceFilter !== 'all') params.append('source', sourceFilter);
+      
+      const response = await fetch(`/api/bot-users?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch users');
+      return response.json();
+    },
   });
 
   const { data: sources } = useQuery<string[]>({

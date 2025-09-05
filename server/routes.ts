@@ -192,14 +192,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     fbq('init', '${process.env.FACEBOOK_PIXEL_ID}');
     fbq('track', 'PageView');
-    
-    // Custom event for bot link clicks
-    fbq('trackCustom', 'BotLinkClick', {
-        source: '${message.source}',
-        button_text: '${message.buttonText || 'N/A'}',
-        telegram_user_id: '${userId}',
-        fbclid: '${fbclid || 'N/A'}'
-    });
     </script>
     <noscript>
     <img height="1" width="1" style="display:none" 

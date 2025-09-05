@@ -19,8 +19,8 @@ interface IStorage {
   // Channel tracking methods
   updateChannelStatus(telegramId: string, status: 'notjoined' | 'joined' | 'left'): Promise<void>;
   getBotUserByTelegramId(telegramId: string): Promise<BotUser | undefined>;
-  getBotUserClickData(telegramId: string): Promise<{ fbclid: string | null; fbc: string | null; fbp: string | null } | null>;
-  getRecentClickData(telegramId: string, minutesBack: number): Promise<{ fbclid: string | null; fbc: string | null; fbp: string | null } | null>;
+  getBotUserClickData(telegramId: string): Promise<{ fbclid: string | null; fbc: string | null; fbp: string | null; userAgent: string | null; ipAddress: string | null } | null>;
+  getRecentClickData(telegramId: string, minutesBack: number): Promise<{ fbclid: string | null; fbc: string | null; fbp: string | null; userAgent: string | null; ipAddress: string | null } | null>;
   
   // Welcome message methods
   getWelcomeMessage(source?: string): Promise<WelcomeMessage | undefined>;
@@ -346,13 +346,15 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async getBotUserClickData(telegramId: string): Promise<{ fbclid: string | null; fbc: string | null; fbp: string | null } | null> {
+  async getBotUserClickData(telegramId: string): Promise<{ fbclid: string | null; fbc: string | null; fbp: string | null; userAgent: string | null; ipAddress: string | null } | null> {
     // Get the most recent link click data for this user
     const [clickData] = await db
       .select({
         fbclid: linkClicks.fbclid,
         fbc: linkClicks.fbc,
         fbp: linkClicks.fbp,
+        userAgent: linkClicks.userAgent,
+        ipAddress: linkClicks.ipAddress,
       })
       .from(linkClicks)
       .where(eq(linkClicks.telegramUserId, telegramId))
@@ -362,7 +364,7 @@ export class DatabaseStorage implements IStorage {
     return clickData || null;
   }
 
-  async getRecentClickData(telegramId: string, minutesBack: number): Promise<{ fbclid: string | null; fbc: string | null; fbp: string | null } | null> {
+  async getRecentClickData(telegramId: string, minutesBack: number): Promise<{ fbclid: string | null; fbc: string | null; fbp: string | null; userAgent: string | null; ipAddress: string | null } | null> {
     // Get click data only if user clicked within the specified time window
     const timeLimit = new Date(Date.now() - minutesBack * 60 * 1000);
     
@@ -371,6 +373,8 @@ export class DatabaseStorage implements IStorage {
         fbclid: linkClicks.fbclid,
         fbc: linkClicks.fbc,
         fbp: linkClicks.fbp,
+        userAgent: linkClicks.userAgent,
+        ipAddress: linkClicks.ipAddress,
       })
       .from(linkClicks)
       .where(

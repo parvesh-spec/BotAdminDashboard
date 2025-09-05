@@ -267,43 +267,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return null;
         }
         
-        // Wait for Facebook Pixel to set cookies, then update database
+        // Wait for Facebook Pixel to fire, then capture all data and redirect
         setTimeout(function() {
             const fbc = getCookie('_fbc');
             const fbp = getCookie('_fbp');
             
-            // If cookies are found, update database via AJAX
-            if (fbc || fbp) {
-                fetch('/api/update-click-cookies', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        messageId: '${messageId}',
-                        userId: '${userId}',
-                        fbc: fbc,
-                        fbp: fbp
-                    })
-                }).catch(err => console.log('Cookie update failed:', err));
-            }
-        }, 2000); // Wait 2 seconds for pixel to set cookies
-        
-        // Prepare final URL with Facebook parameters
-        let finalUrl = '${finalUrl}';
-        const urlParams = new URLSearchParams();
-        
-        ${fbclid ? `urlParams.append('fbclid', '${fbclid}');` : ''}
-        
-        if (urlParams.toString()) {
-            const separator = finalUrl.includes('?') ? '&' : '?';
-            finalUrl += separator + urlParams.toString();
-        }
-        
-        // Auto redirect after tracking
-        setTimeout(function() {
-            window.location.href = finalUrl;
-        }, 1000);
+            // Capture all data in one call and then redirect
+            fetch('/api/update-click-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    messageId: '${messageId}',
+                    userId: '${userId}',
+                    fbclid: '${fbclid || ''}',
+                    fbc: fbc || '',
+                    fbp: fbp || '',
+                    userAgent: navigator.userAgent,
+                    finalUrl: '${finalUrl}'
+                })
+            }).then(() => {
+                // Redirect immediately after data is saved
+                window.location.href = '${finalUrl}${fbclid ? (finalUrl.includes('?') ? '&' : '?') + 'fbclid=' + fbclid : ''}';
+            }).catch(err => {
+                console.log('Data save failed, redirecting anyway:', err);
+                // Redirect even if save fails
+                window.location.href = '${finalUrl}${fbclid ? (finalUrl.includes('?') ? '&' : '?') + 'fbclid=' + fbclid : ''}';
+            });
+        }, 1500); // Wait 1.5 seconds for pixel to set cookies, then save data and redirect
     </script>
 </body>
 </html>`;
@@ -317,24 +309,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update click cookies after Facebook Pixel loads
-  app.post("/api/update-click-cookies", async (req, res) => {
+  // Complete click data capture after Facebook Pixel loads
+  app.post("/api/update-click-data", async (req, res) => {
     try {
-      const { messageId, userId, fbc, fbp } = req.body;
+      const { messageId, userId, fbclid, fbc, fbp, userAgent, finalUrl } = req.body;
       
       if (!messageId || !userId) {
         return res.status(400).json({ message: "Missing required parameters" });
       }
 
-      // Update the most recent click record for this user and message
-      await storage.updateClickCookies(messageId, userId, fbc, fbp);
+      // Update the recent click record with all Facebook data
+      await storage.updateCompleteClickData(messageId, userId, {
+        fbclid: fbclid || null,
+        fbc: fbc || null,
+        fbp: fbp || null,
+        userAgent: userAgent || null,
+      });
       
-      console.log(`🍪 Cookies updated: User ${userId}, fbc: ${fbc ? 'YES' : 'NO'}, fbp: ${fbp ? 'YES' : 'NO'}`);
+      console.log(`📊 Complete data saved: User ${userId} | fbclid: ${fbclid ? 'YES' : 'NO'} | fbc: ${fbc ? 'YES' : 'NO'} | fbp: ${fbp ? 'YES' : 'NO'}`);
       
       res.json({ success: true });
     } catch (error) {
-      console.error("Error updating click cookies:", error);
-      res.status(500).json({ message: "Failed to update cookies" });
+      console.error("Error updating click data:", error);
+      res.status(500).json({ message: "Failed to update data" });
     }
   });
 

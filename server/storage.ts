@@ -24,7 +24,7 @@ interface IStorage {
   
   // Link click tracking methods
   trackLinkClick(clickData: InsertLinkClick): Promise<LinkClick>;
-  updateClickCookies(messageId: string, userId: string, fbc: string | null, fbp: string | null): Promise<void>;
+  updateCompleteClickData(messageId: string, userId: string, data: { fbclid: string | null, fbc: string | null, fbp: string | null, userAgent: string | null }): Promise<void>;
   getLinkClickStats(welcomeMessageId?: string): Promise<{ total: number; unique: number }>;
   getLinkClicks(welcomeMessageId: string, page: number, limit: number): Promise<{ clicks: LinkClick[]; total: number }>;
 }
@@ -229,23 +229,27 @@ export class DatabaseStorage implements IStorage {
     return click;
   }
 
-  async updateClickCookies(messageId: string, userId: string, fbc: string | null, fbp: string | null): Promise<void> {
-    // Update ALL recent click records for this user and message (last 5 minutes)
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+  async updateCompleteClickData(messageId: string, userId: string, data: { fbclid: string | null, fbc: string | null, fbp: string | null, userAgent: string | null }): Promise<void> {
+    // Update the most recent click record for this user and message
+    const updateData: any = {};
     
-    await db
-      .update(linkClicks)
-      .set({ 
-        fbc: fbc,
-        fbp: fbp 
-      })
-      .where(
-        and(
-          eq(linkClicks.welcomeMessageId, messageId),
-          eq(linkClicks.telegramUserId, userId),
-          sql`${linkClicks.clickedAt} >= ${fiveMinutesAgo}` // Last 5 minutes के सारे records
-        )
-      );
+    if (data.fbclid) updateData.fbclid = data.fbclid;
+    if (data.fbc) updateData.fbc = data.fbc;
+    if (data.fbp) updateData.fbp = data.fbp;
+    if (data.userAgent) updateData.userAgent = data.userAgent;
+    
+    // Only update if we have data to update
+    if (Object.keys(updateData).length > 0) {
+      await db
+        .update(linkClicks)
+        .set(updateData)
+        .where(
+          and(
+            eq(linkClicks.welcomeMessageId, messageId),
+            eq(linkClicks.telegramUserId, userId)
+          )
+        );
+    }
   }
 
   async getLinkClickStats(welcomeMessageId?: string): Promise<{ total: number; unique: number }> {

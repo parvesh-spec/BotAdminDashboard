@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { MessageSquare, Plus, Save, Trash2, Eye, Send, Edit3 } from "lucide-react";
+import { MessageSquare, Plus, Save, Trash2, Eye, Send, Edit3, BarChart3, Clock, User, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import Sidebar from "@/components/Sidebar";
@@ -34,9 +35,28 @@ export default function WelcomeMessage() {
   const [selectedSource, setSelectedSource] = useState("default");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingMessage, setEditingMessage] = useState<WelcomeMessage | null>(null);
+  const [showClicksDialog, setShowClicksDialog] = useState(false);
+  const [selectedMessageForClicks, setSelectedMessageForClicks] = useState<WelcomeMessage | null>(null);
+  const [clicksPage, setClicksPage] = useState(1);
 
   const { data: welcomeMessages = [], isLoading } = useQuery<WelcomeMessage[]>({
     queryKey: ["/api/welcome-messages"],
+  });
+
+  const { data: clicksData, isLoading: clicksLoading } = useQuery({
+    queryKey: ["/api/link-clicks", selectedMessageForClicks?.id, clicksPage],
+    queryFn: () => selectedMessageForClicks?.id ? 
+      fetch(`/api/link-clicks/${selectedMessageForClicks.id}?page=${clicksPage}&limit=10`).then(res => res.json()) 
+      : null,
+    enabled: !!selectedMessageForClicks?.id,
+  });
+
+  const { data: clickStats } = useQuery({
+    queryKey: ["/api/link-stats", selectedMessageForClicks?.id],
+    queryFn: () => selectedMessageForClicks?.id ? 
+      fetch(`/api/link-stats/${selectedMessageForClicks.id}`).then(res => res.json()) 
+      : null,
+    enabled: !!selectedMessageForClicks?.id,
   });
 
   const form = useForm<WelcomeMessageForm>({
@@ -138,6 +158,12 @@ export default function WelcomeMessage() {
     setShowCreateDialog(true);
   };
 
+  const handleViewClicks = (message: WelcomeMessage) => {
+    setSelectedMessageForClicks(message);
+    setClicksPage(1);
+    setShowClicksDialog(true);
+  };
+
   const getSourceColor = (source: string) => {
     const colors = {
       default: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
@@ -232,6 +258,20 @@ export default function WelcomeMessage() {
                             </div>
                           </div>
                           <div className="flex items-center space-x-1">
+                            {message.buttonText && message.buttonLink && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewClicks(message);
+                                }}
+                                data-testid={`button-clicks-${message.source}`}
+                                title="View Click Analytics"
+                              >
+                                <BarChart3 size={14} />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -341,7 +381,7 @@ export default function WelcomeMessage() {
                           </div>
                           {currentMessage.updatedAt && (
                             <div className="text-muted-foreground">
-                              Updated: {new Date(currentMessage.updatedAt).toLocaleDateString()}
+                              Updated: {new Date(currentMessage.updatedAt!).toLocaleDateString()}
                             </div>
                           )}
                         </div>
@@ -573,6 +613,179 @@ export default function WelcomeMessage() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Click Analytics Dialog */}
+      <Dialog open={showClicksDialog} onOpenChange={setShowClicksDialog}>
+        <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <BarChart3 size={20} />
+              <span>Link Click Analytics</span>
+              {selectedMessageForClicks && (
+                <Badge className={getSourceColor(selectedMessageForClicks.source)}>
+                  {selectedMessageForClicks.source}
+                </Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Detailed analytics for button clicks from this welcome message
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedMessageForClicks && (
+            <div className="space-y-4">
+              {/* Stats Summary */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="flex items-center space-x-2">
+                    <BarChart3 className="text-blue-600" size={16} />
+                    <span className="text-sm text-muted-foreground">Total Clicks</span>
+                  </div>
+                  <div className="text-2xl font-bold">{clickStats?.total || 0}</div>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="flex items-center space-x-2">
+                    <User className="text-green-600" size={16} />
+                    <span className="text-sm text-muted-foreground">Unique Users</span>
+                  </div>
+                  <div className="text-2xl font-bold">{clickStats?.unique || 0}</div>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="flex items-center space-x-2">
+                    <Globe className="text-purple-600" size={16} />
+                    <span className="text-sm text-muted-foreground">Target URL</span>
+                  </div>
+                  <div className="text-xs truncate font-mono">{selectedMessageForClicks.buttonLink}</div>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="flex items-center space-x-2">
+                    <Send className="text-orange-600" size={16} />
+                    <span className="text-sm text-muted-foreground">Button Text</span>
+                  </div>
+                  <div className="text-sm font-medium">{selectedMessageForClicks.buttonText}</div>
+                </div>
+              </div>
+
+              {/* Clicks Table */}
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Username</TableHead>
+                      <TableHead>Clicked At</TableHead>
+                      <TableHead>IP Address</TableHead>
+                      <TableHead>User Agent</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {clicksLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8">
+                          <div className="animate-pulse space-y-2">
+                            <div className="h-4 bg-muted rounded w-3/4 mx-auto"></div>
+                            <div className="h-4 bg-muted rounded w-1/2 mx-auto"></div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : clicksData?.clicks?.length > 0 ? (
+                      clicksData.clicks.map((click: any) => (
+                        <TableRow key={click.id}>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                <User size={14} />
+                              </div>
+                              <div>
+                                <div className="font-medium text-sm">
+                                  {click.firstName} {click.lastName || ''}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  ID: {click.telegramUserId}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm font-mono">
+                              {click.username ? `@${click.username}` : 'No username'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              <Clock size={14} className="text-muted-foreground" />
+                              <span className="text-sm">
+                                {new Date(click.clickedAt).toLocaleString()}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {click.ipAddress || 'Unknown'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground truncate max-w-[200px] block">
+                              {click.userAgent || 'Unknown'}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          <BarChart3 className="mx-auto mb-2" size={24} />
+                          <p>No clicks recorded yet</p>
+                          <p className="text-xs">Users need to click the button in Telegram first</p>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination */}
+              {clicksData?.total > 10 && (
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((clicksPage - 1) * 10) + 1} to {Math.min(clicksPage * 10, clicksData.total)} of {clicksData.total} clicks
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setClicksPage(prev => Math.max(1, prev - 1))}
+                      disabled={clicksPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm">
+                      Page {clicksPage} of {Math.ceil(clicksData.total / 10)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setClicksPage(prev => prev + 1)}
+                      disabled={clicksPage >= Math.ceil(clicksData.total / 10)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowClicksDialog(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

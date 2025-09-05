@@ -25,6 +25,7 @@ interface IStorage {
   // Link click tracking methods
   trackLinkClick(clickData: InsertLinkClick): Promise<LinkClick>;
   getLinkClickStats(welcomeMessageId?: string): Promise<{ total: number; unique: number }>;
+  getLinkClicks(welcomeMessageId: string, page: number, limit: number): Promise<{ clicks: LinkClick[]; total: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -242,6 +243,43 @@ export class DatabaseStorage implements IStorage {
     return {
       total: totalResult?.count || 0,
       unique: uniqueResult?.count || 0,
+    };
+  }
+
+  async getLinkClicks(welcomeMessageId: string, page: number, limit: number): Promise<{ clicks: LinkClick[]; total: number }> {
+    const offset = (page - 1) * limit;
+    
+    // Get paginated clicks with user data
+    const clicks = await db
+      .select({
+        id: linkClicks.id,
+        welcomeMessageId: linkClicks.welcomeMessageId,
+        telegramUserId: linkClicks.telegramUserId,
+        originalUrl: linkClicks.originalUrl,
+        userAgent: linkClicks.userAgent,
+        ipAddress: linkClicks.ipAddress,
+        clickedAt: linkClicks.clickedAt,
+        // Join with bot users to get user info
+        firstName: botUsers.firstName,
+        lastName: botUsers.lastName,
+        username: botUsers.username,
+      })
+      .from(linkClicks)
+      .leftJoin(botUsers, eq(linkClicks.telegramUserId, botUsers.telegramId))
+      .where(eq(linkClicks.welcomeMessageId, welcomeMessageId))
+      .orderBy(desc(linkClicks.clickedAt))
+      .limit(limit)
+      .offset(offset);
+
+    // Get total count
+    const [totalResult] = await db
+      .select({ count: count() })
+      .from(linkClicks)
+      .where(eq(linkClicks.welcomeMessageId, welcomeMessageId));
+
+    return {
+      clicks: clicks as any[],
+      total: totalResult?.count || 0,
     };
   }
 }

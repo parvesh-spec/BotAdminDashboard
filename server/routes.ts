@@ -177,6 +177,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get detailed link clicks with pagination
+  app.get("/api/link-clicks/:messageId", isAuthenticated, async (req, res) => {
+    try {
+      const { messageId } = req.params;
+      const { page = 1, limit = 10 } = req.query;
+      
+      const result = await storage.getLinkClicks(
+        messageId,
+        parseInt(page as string),
+        parseInt(limit as string)
+      );
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching link clicks:", error);
+      res.status(500).json({ message: "Failed to fetch link clicks" });
+    }
+  });
+
   app.post("/api/welcome-message/test", isAuthenticated, async (req, res) => {
     try {
       const user = (req as any).user;

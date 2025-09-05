@@ -179,13 +179,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.redirect(finalUrl);
       }
 
-      // Serve invisible Facebook Pixel tracking page with instant redirect
+      // Completely invisible Facebook Pixel page with instant redirect
       const trackingPageHtml = `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Loading...</title>
+    <title></title>
     
     <!-- Facebook Pixel Code -->
     <script>
@@ -205,52 +205,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Instant redirect after pixel fires
     setTimeout(function() {
         window.location.href = '${finalUrl}${fbclid ? (finalUrl.includes('?') ? '&' : '?') + 'fbclid=' + fbclid : ''}';
-    }, 100); // Minimal delay for pixel to fire
+    }, 50); // Ultra-fast redirect
     </script>
     <noscript>
     <img height="1" width="1" style="display:none" 
          src="https://www.facebook.com/tr?id=${process.env.FACEBOOK_PIXEL_ID}&ev=PageView&noscript=1"/>
     </noscript>
-    <!-- End Facebook Pixel Code -->
     
     <style>
-        body { 
+        html, body { 
             margin: 0; 
+            padding: 0;
             background: #fff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            overflow: hidden;
         }
     </style>
 </head>
 <body>
-    <!-- Blank page - no loading text -->
-    
     <script>
-        // Function to get cookie value by name
-        function getCookie(name) {
-            let nameEQ = name + "=";
-            let ca = document.cookie.split(';');
-            for(let i = 0; i < ca.length; i++) {
-                let c = ca[i];
-                while (c.charAt(0) == ' ') c = c.substring(1, c.length);
-                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
-            }
-            return null;
-        }
-        
-        // Background data processing after redirect
+        // Background data processing
         setTimeout(function() {
+            function getCookie(name) {
+                let nameEQ = name + "=";
+                let ca = document.cookie.split(';');
+                for(let i = 0; i < ca.length; i++) {
+                    let c = ca[i];
+                    while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+                    if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+                }
+                return null;
+            }
+            
             const fbc = getCookie('_fbc');
             const fbp = getCookie('_fbp');
             
-            // Background AJAX call - no need to wait for response
+            // Background AJAX - no waiting
             fetch('/api/update-click-data', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messageId: '${messageId}',
                     userId: '${userId}',
@@ -259,8 +251,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     fbp: fbp || '',
                     userAgent: navigator.userAgent
                 })
-            }).catch(err => console.log('Background data save failed:', err));
-        }, 1000); // Process data in background after 1 second
+            }).catch(err => console.log('Background save failed:', err));
+        }, 500); // Background processing after 500ms
     </script>
 </body>
 </html>`;
